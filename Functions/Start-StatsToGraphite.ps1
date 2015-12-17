@@ -111,101 +111,13 @@ Function Start-StatsToGraphite
         # Round Time to Nearest Time Period
         $nowUtc = $nowUtc.AddSeconds(- ($nowUtc.Second % $Config.MetricSendIntervalSeconds))
 
-        $metricsToSend = @{}
-
-        if(-not $ExcludePerfCounters)
-        {
-            # Take the Sample of the Counter
-            $collections = Get-Counter -Counter $Config.Counters -SampleInterval 1 -MaxSamples 1
-
-            # Filter the Output of the Counters
-            $samples = $collections.CounterSamples
-
-            # Verbose
-            Write-Verbose "All Samples Collected"
-
-            # Loop Through All The Counters
-            foreach ($sample in $samples)
-            {
-                if ($Config.ShowOutput)
-                {
-                    Write-Verbose "Sample Name: $($sample.Path)"
-                }
-
-                # Create Stopwatch for Filter Time Period
-                $filterStopWatch = [System.Diagnostics.Stopwatch]::StartNew()
-
-                # Check if there are filters or not
-                if ([string]::IsNullOrWhiteSpace($Config.Filters) -or $sample.Path -notmatch [regex]$Config.Filters)
-                {
-                    # Run the sample path through the ConvertTo-GraphiteMetric function
-                    $cleanNameOfSample = ConvertTo-GraphiteMetric -MetricToClean $sample.Path -HostName $Config.NodeHostName -MetricReplacementHash $Config.MetricReplace
-
-                    # Build the full metric path
-                    $metricPath = $Config.MetricPath + '.' + $cleanNameOfSample
-
-                    $metricsToSend[$metricPath] = $sample.Cookedvalue
-                }
-                else
-                {
-                    Write-Verbose "Filtering out Sample Name: $($sample.Path) as it matches something in the filters."
-                }
-
-                $filterStopWatch.Stop()
-
-                Write-Verbose "Job Execution Time To Get to Clean Metrics: $($filterStopWatch.Elapsed.TotalSeconds) seconds."
-
-            }# End for each sample loop
-        }# end if ExcludePerfCounters
-
-        if($SqlMetrics) {
-            # Loop through each SQL Server
-            foreach ($sqlServer in $Config.MSSQLServers)
-            {
-                Write-Verbose "Running through SQLServer $($sqlServer.ServerInstance)"
-                # Loop through each query for the SQL server
-                foreach ($query in $sqlServer.Queries)
-                {
-                    Write-Verbose "Current Query $($query.TSQL)"
-
-                    $sqlCmdParams = @{
-                        'ServerInstance' = $sqlServer.ServerInstance;
-                        'Database' = $query.Database;
-                        'Query' = $query.TSQL;
-                        'ConnectionTimeout' = $Config.MSSQLConnectTimeout;
-                        'QueryTimeout' = $Config.MSSQLQueryTimeout
-                    }
-
-                    # Run the Invoke-SqlCmd Cmdlet with a username and password only if they are present in the config file
-                    if (-not [string]::IsNullOrWhitespace($sqlServer.Username) `
-                        -and -not [string]::IsNullOrWhitespace($sqlServer.Password))
-                    {
-                        $sqlCmdParams['Username'] = $sqlServer.Username
-                        $sqlCmdParams['Password'] = $sqlServer.Password
-                    }
-
-                    # Run the SQL Command
-                    try
-                    {
-                        $commandMeasurement = Measure-Command -Expression {
-                            $sqlresult = Invoke-SQLCmd @sqlCmdParams
-
-                            # Build the MetricPath that will be used to send the metric to Graphite
-                            $metricPath = $Config.MSSQLMetricPath + '.' + $query.MetricName
-
-                            $metricsToSend[$metricPath] = $sqlresult[0]
-                        }
-
-                        Write-Verbose ('SQL Metric Collection Execution Time: ' + $commandMeasurement.TotalSeconds + ' seconds')
-                    }
-                    catch
-                    {
-                        $exceptionText = GetPrettyProblem $_
-                        throw "An error occurred with processing the SQL Query. $exceptionText"
-                    }
-                } #end foreach Query
-            } #end foreach SQL Server
-        }#endif SqlMetrics
+        $collectMetricsParams = @{
+            "Config" = $Config
+            "ExcludePerfCounters" = $ExcludePerfCounters
+            "SqlMetrics" = $SqlMetrics
+            "AddConfigMetricPath" = $true
+        }
+        $metricsToSend = CollectMetrics @collectMetricsParams
 
         # Send To Graphite Server
 
@@ -236,4 +148,117 @@ Function Start-StatsToGraphite
             Write-Output $VerboseOutPut
         }
     }
+}
+
+function CollectMetrics
+{
+    
+    param (
+        [hashtable]$Config,
+        [switch]$ExcludePerfCounters,
+        [switch]$SqlMetrics,
+        [bool]$AddConfigMetricPath
+    )
+
+    $metrics = @{}
+    
+    if(-not $ExcludePerfCounters)
+    {
+        # Take the Sample of the Counter
+        $collections = Get-Counter -Counter $Config.Counters -SampleInterval 1 -MaxSamples 1
+
+        # Filter the Output of the Counters
+        $samples = $collections.CounterSamples
+
+        # Verbose
+        Write-Verbose "All Samples Collected"
+
+        # Loop Through All The Counters
+        foreach ($sample in $samples)
+        {
+            if ($Config.ShowOutput)
+            {
+                Write-Verbose "Sample Name: $($sample.Path)"
+            }
+
+            # Create Stopwatch for Filter Time Period
+            $filterStopWatch = [System.Diagnostics.Stopwatch]::StartNew()
+
+            # Check if there are filters or not
+            if ([string]::IsNullOrWhiteSpace($Config.Filters) -or $sample.Path -notmatch [regex]$Config.Filters)
+            {
+                # Run the sample path through the ConvertTo-GraphiteMetric function
+                $cleanNameOfSample = ConvertTo-GraphiteMetric -MetricToClean $sample.Path -HostName $Config.NodeHostName -MetricReplacementHash $Config.MetricReplace
+
+                # Build the full metric path
+                if($AddConfigMetricPath){
+                    $metricPath = $Config.MetricPath + '.' + $cleanNameOfSample
+                }else{
+                    $metricPath = "/" + $cleanNameOfSample
+                }
+
+                $metrics[$metricPath] = $sample.Cookedvalue
+            }
+            else
+            {
+                Write-Verbose "Filtering out Sample Name: $($sample.Path) as it matches something in the filters."
+            }
+
+            $filterStopWatch.Stop()
+
+            Write-Verbose "Job Execution Time To Get to Clean Metrics: $($filterStopWatch.Elapsed.TotalSeconds) seconds."
+
+        }# End for each sample loop
+    }# end if ExcludePerfCounters
+
+    if($SqlMetrics) {
+        # Loop through each SQL Server
+        foreach ($sqlServer in $Config.MSSQLServers)
+        {
+            Write-Verbose "Running through SQLServer $($sqlServer.ServerInstance)"
+            # Loop through each query for the SQL server
+            foreach ($query in $sqlServer.Queries)
+            {
+                Write-Verbose "Current Query $($query.TSQL)"
+
+                $sqlCmdParams = @{
+                    'ServerInstance' = $sqlServer.ServerInstance;
+                    'Database' = $query.Database;
+                    'Query' = $query.TSQL;
+                    'ConnectionTimeout' = $Config.MSSQLConnectTimeout;
+                    'QueryTimeout' = $Config.MSSQLQueryTimeout
+                }
+
+                # Run the Invoke-SqlCmd Cmdlet with a username and password only if they are present in the config file
+                if (-not [string]::IsNullOrWhitespace($sqlServer.Username) `
+                    -and -not [string]::IsNullOrWhitespace($sqlServer.Password))
+                {
+                    $sqlCmdParams['Username'] = $sqlServer.Username
+                    $sqlCmdParams['Password'] = $sqlServer.Password
+                }
+
+                # Run the SQL Command
+                try
+                {
+                    $commandMeasurement = Measure-Command -Expression {
+                        $sqlresult = Invoke-SQLCmd @sqlCmdParams
+
+                        # Build the MetricPath that will be used to send the metric to Graphite
+                        $metricPath = $Config.MSSQLMetricPath + '.' + $query.MetricName
+
+                        $metrics[$metricPath] = $sqlresult[0]
+                    }
+
+                    Write-Verbose ('SQL Metric Collection Execution Time: ' + $commandMeasurement.TotalSeconds + ' seconds')
+                }
+                catch
+                {
+                    $exceptionText = GetPrettyProblem $_
+                    throw "An error occurred with processing the SQL Query. $exceptionText"
+                }
+            } #end foreach Query
+        } #end foreach SQL Server
+    }#endif SqlMetrics
+    
+    Return $metrics
 }

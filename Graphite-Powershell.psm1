@@ -13,6 +13,7 @@ $configPath = [string](Split-Path -Parent $MyInvocation.MyCommand.Definition) + 
 . $here\Functions\Send-GraphiteMetric.ps1
 . $here\Functions\Start-SQLStatsToGraphite.ps1
 . $here\Functions\Start-StatsToGraphite.ps1
+. $here\Functions\Start-HttpServer.ps1
 
 $functionsToExport = @(
     'ConvertTo-GraphiteMetric',
@@ -20,7 +21,8 @@ $functionsToExport = @(
     'Send-GraphiteEvent',
     'Send-GraphiteMetric',
     'Start-SQLStatsToGraphite',
-    'Start-StatsToGraphite'
+    'Start-StatsToGraphite',
+    'Start-HttpServer'
 )
 
 Export-ModuleMember -Function $functionsToExport
