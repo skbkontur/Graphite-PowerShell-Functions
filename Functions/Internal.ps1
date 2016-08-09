@@ -110,8 +110,8 @@ Function Import-XMLConfig
         [int]$Config.MSSQLQueryTimeout = $xmlfile.Configuration.MSSQLMetics.SQLQueryTimeoutSeconds
 
         # Create the Performance Counters Array
-        $Config.MSSQLServers = @()     
-     
+        $Config.MSSQLServers = @()
+
         foreach ($sqlServer in $xmlfile.Configuration.MSSQLMetics)
         {
             # Load each SQL Server into an array
