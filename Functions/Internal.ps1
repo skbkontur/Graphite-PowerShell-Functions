@@ -30,7 +30,7 @@ Function Import-XMLConfig
     [hashtable]$Config = @{ }
 
     # Load Configuration File
-    $xmlfile = [xml]([System.IO.File]::ReadAllText($configPath))
+    $xmlfile = [xml](Get-Content $configPath)
 
     # Set the Graphite carbon server location and port number
     $Config.CarbonServer = $xmlfile.Configuration.Graphite.CarbonServer
@@ -68,6 +68,20 @@ Function Import-XMLConfig
     foreach ($counter in $xmlfile.Configuration.PerformanceCounters.Counter)
     {
         $Config.Counters += $counter.Name
+    }
+
+    $Config.Services = @()
+    try
+    {
+      # Load each row from the configuration file into the counter array
+      foreach ($counter in $xmlfile.Configuration.WindowsServices.Service)
+      {
+          $Config.Services += $counter.Name
+      }
+    }
+    catch
+    {
+      Write-Verbose "Windows Services configuration has been left out, skipping."
     }
 
     # Create the Metric Cleanup Hashtable
