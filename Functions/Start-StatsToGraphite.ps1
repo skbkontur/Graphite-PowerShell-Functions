@@ -236,9 +236,9 @@ function CollectMetrics
 
             # Build the full metric path
             if($AddConfigMetricPath){
-                $metricPath = $Config.MetricPath + '.services.' + $cleanNameOfSample
+                $metricPath = $Config.MetricPath + '.services.' + $cleanNameOfService
             }else{
-                $metricPath = "/" + $cleanNameOfSample
+                $metricPath = "/" + $cleanNameOfService
             }
 
             $metrics[$metricPath] = $status
