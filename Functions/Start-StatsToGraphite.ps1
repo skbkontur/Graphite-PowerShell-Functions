@@ -152,7 +152,7 @@ Function Start-StatsToGraphite
 
 function CollectMetrics
 {
-    
+
     param (
         [hashtable]$Config,
         [switch]$ExcludePerfCounters,
@@ -161,7 +161,7 @@ function CollectMetrics
     )
 
     $metrics = @{}
-    
+
     if(-not $ExcludePerfCounters)
     {
         # Take the Sample of the Counter
@@ -209,6 +209,45 @@ function CollectMetrics
             Write-Verbose "Job Execution Time To Get to Clean Metrics: $($filterStopWatch.Elapsed.TotalSeconds) seconds."
 
         }# End for each sample loop
+
+        if ($Config.Services -ne $null)
+        {
+          Write-Verbose "Service monitor enabled"
+          Foreach ($service in $Config.Services)
+          {
+            # Create Stopwatch for Filter Time Period
+            $filterStopWatch = [System.Diagnostics.Stopwatch]::StartNew()
+
+            $cleanNameOfService = ConvertTo-GraphiteMetric -MetricToClean $service -HostName $Config.NodeHostName -MetricReplacementHash $Config.MetricReplace
+            $serviceStatus = Get-Service -Name $service -ErrorAction SilentlyContinue
+            if ($serviceStatus -eq $null)
+            {
+              Write-Warning "Service $service not found."
+              $status = 10
+            }
+            elseif ($serviceStatus.Status -eq [System.ServiceProcess.ServiceControllerStatus]::Running)
+            {
+              $status = 20
+            }
+            else
+            {
+              $status = 10
+            }
+
+            # Build the full metric path
+            if($AddConfigMetricPath){
+                $metricPath = $Config.MetricPath + '.' + $Config.NodeHostName.ToLower() + '.services.' + $cleanNameOfService
+            }else{
+                $metricPath = "/" + $Config.NodeHostName.ToLower() + '.services.' + $cleanNameOfService
+            }
+
+            $metrics[$metricPath] = $status
+
+            $filterStopWatch.Stop()
+            Write-Verbose "Job Execution Time To Get to Clean Metrics: $($filterStopWatch.Elapsed.TotalSeconds) seconds."
+          }
+
+        }
     }# end if ExcludePerfCounters
 
     if($SqlMetrics) {
@@ -259,6 +298,6 @@ function CollectMetrics
             } #end foreach Query
         } #end foreach SQL Server
     }#endif SqlMetrics
-    
+
     Return $metrics
 }
