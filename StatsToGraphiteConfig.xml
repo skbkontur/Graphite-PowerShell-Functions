@@ -75,6 +75,7 @@
 			</SQLServer>
 		</SQLServers>
 	</MSSQLMetics>
+	<Ntp MetricPath="ntp_offset" TimeSource="0.pool.ntp.org" />
 	<Logging>
 		<VerboseOutput>True</VerboseOutput>
 	</Logging>
