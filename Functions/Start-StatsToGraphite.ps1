@@ -51,7 +51,8 @@ Function Start-StatsToGraphite
         [Parameter(Mandatory = $false)]
         [switch]$TestMode,
         [switch]$ExcludePerfCounters = $false,
-        [switch]$SqlMetrics = $false
+        [switch]$SqlMetrics = $false,
+        [switch]$NtpOffset = $true
     )
 
     # Run The Load XML Config Function
@@ -62,7 +63,7 @@ Function Start-StatsToGraphite
 
     $configFileLastWrite = (Get-Item -Path $configPath).LastWriteTime
 
-    if($ExcludePerfCounters -and -not $SqlMetrics) {
+    if($ExcludePerfCounters -and -not $SqlMetrics -and -not $NtpOffset) {
         throw "Parameter combination provided will prevent any metrics from being collected"
     }
 
@@ -116,6 +117,7 @@ Function Start-StatsToGraphite
             "ExcludePerfCounters" = $ExcludePerfCounters
             "SqlMetrics" = $SqlMetrics
             "AddConfigMetricPath" = $true
+            "NtpOffset" = $NtpOffset
         }
         $metricsToSend = CollectMetrics @collectMetricsParams
 
@@ -157,7 +159,8 @@ function CollectMetrics
         [hashtable]$Config,
         [switch]$ExcludePerfCounters,
         [switch]$SqlMetrics,
-        [bool]$AddConfigMetricPath
+        [bool]$AddConfigMetricPath,
+        [switch]$NtpOffset
     )
 
     $metrics = @{}
@@ -166,7 +169,6 @@ function CollectMetrics
     {
         # Take the Sample of the Counter
         $collections = Get-Counter -Counter $Config.Counters -SampleInterval 1 -MaxSamples 1
-
         # Filter the Output of the Counters
         $samples = $collections.CounterSamples
 
@@ -248,7 +250,18 @@ function CollectMetrics
           }
 
         }
-    }# end if ExcludePerfCounters
+    }# end if Config.Services
+
+    if ($Config.NtpTimeSource -ne $null) {
+        $sample = & W32TM /stripchart /computer:$($Config.NtpTimeSource) /dataonly /period:1 /samples:1 2>&1 | Select-String '[+-]\d\d\.\d\d\d\d\d\d\d' -AllMatches | Foreach {$_.Matches} | Foreach {[decimal]$_.Value*1000}
+        # Build the full metric path
+        if ($sample) {
+          $metricPath = $Config.MetricPath + '.' + $Config.NodeHostName.toLower() + '.' + $Config.NtpMetricPath
+          $metrics[$metricPath] = $sample
+        } else {
+          Write-Verbose "Unable to test time-diff with $($Config.NtpTimeSource)"
+        }
+    }#endif Config.NtpTimeSource
 
     if($SqlMetrics) {
         # Loop through each SQL Server
@@ -299,5 +312,6 @@ function CollectMetrics
         } #end foreach SQL Server
     }#endif SqlMetrics
 
+    # Send To Graphite Server
     Return $metrics
 }

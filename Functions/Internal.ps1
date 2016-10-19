@@ -28,7 +28,6 @@ Function Import-XMLConfig
     )
 
     [hashtable]$Config = @{ }
-
     # Load Configuration File
     $xmlfile = [xml](Get-Content $configPath)
 
@@ -38,7 +37,7 @@ Function Import-XMLConfig
 
     # Get the HostName to use for the metrics from the config file
     $Config.NodeHostName = $xmlfile.Configuration.Graphite.NodeHostName
-    
+
     # Set the NodeHostName to ComputerName
     if($Config.NodeHostName -eq '$env:COMPUTERNAME')
     {
@@ -140,6 +139,12 @@ Function Import-XMLConfig
     catch
     {
         Write-Verbose "SQL configuration has been left out, skipping."
+    }
+
+    if ($xmlfile.Configuration.Ntp.MetricPath -and $xmlfile.Configuration.Ntp.TimeSource) {
+        $Config.NtpTimeSource = $xmlfile.Configuration.Ntp.TimeSource
+        $Config.NtpMetricPath = $xmlfile.Configuration.Ntp.MetricPath
+        Write-Verbose "NTP offset config present"
     }
 
     Return $Config
