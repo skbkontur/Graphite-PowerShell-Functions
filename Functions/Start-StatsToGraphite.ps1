@@ -255,8 +255,12 @@ function CollectMetrics
     if ($Config.NtpTimeSource -ne $null) {
         $sample = & W32TM /stripchart /computer:$($Config.NtpTimeSource) /dataonly /period:1 /samples:1 2>&1 | Select-String '[+-]\d\d\.\d\d\d\d\d\d\d' -AllMatches | Foreach {$_.Matches} | Foreach {[decimal]$_.Value*1000}
         # Build the full metric path
-        $metricPath = $Config.MetricPath + '.' + $Config.NodeHostName.toLower() + '.' + $Config.NtpMetricPath
-        $metrics[$metricPath] = $sample
+        if ($sample) {
+          $metricPath = $Config.MetricPath + '.' + $Config.NodeHostName.toLower() + '.' + $Config.NtpMetricPath
+          $metrics[$metricPath] = $sample
+        } else {
+          Write-Verbose "Unable to test time-diff with $($Config.NtpTimeSource)"
+        }
     }#endif Config.NtpTimeSource
 
     if($SqlMetrics) {
