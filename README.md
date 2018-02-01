@@ -27,7 +27,7 @@ More details at [http://www.hodgkins.net.au/mswindows/using-powershell-to-send-m
 1. Download the repository and place into a PowerShell Modules directory called **Graphite-Powershell**. The module directories can be found by running `$env:PSModulePath` in PowerShell. For example, `C:\Program Files\WindowsPowerShell\Modules\Graphite-PowerShell`
 1. Verify your folder structure looks like this, with the *.psd1* and *.psm1* files inside the **Graphite-Powershell** folder:
 
- ![alt text](http://i.imgur.com/4wE9Xq5.jpg "Start-StatsToGraphite with Verbose Output")
+ ![alt text](https://i.imgur.com/cS3JpNB.png "Start-StatsToGraphite with Verbose Output")
 3. Make sure the files are un-blocked by right clicking on them and going to properties.
 4. Modify the *StatsToGraphiteConfig.xml* configuration file. Instructions [here](#config).
 5. Open PowerShell and ensure you set your Execution Policy to allow scripts be run. For example `Set-ExecutionPolicy RemoteSigned`.
@@ -127,7 +127,7 @@ VerboseOutput | Will provide each of the metrics that were sent over to Carbon a
 The following shows how to use the `Start-StatsToGraphite`, which will collect Windows performance counters and send them to Graphite.
 
 1. Open PowerShell
-2. Import the Module by running `Import-Module -Name Graphite-PowerShell`
+2. Import the Module by running Import-Module -Name C:\Graphite-PowerShell\Graphite-PowerShell.psm1
 3. Start the script by using the function `Start-StatsToGraphite`. If you want Verbose details, use `Start-StatsToGraphite -Verbose`.
 
 You may need to run the PowerShell instance with Administrative rights depending on the performance counters you want to access. This is due to the scripts use of the `Get-Counter` CmdLet.
@@ -147,7 +147,7 @@ That is all there is to getting your Windows performance counters into Graphite.
 The following shows how to use the `Start-SQLStatsToGraphite`, which will execute any SQL queries listed in the configuration file and send the result (which needs to be an integer) to Graphite.
 
 1. Open PowerShell
-2. Import the Module by running `Import-Module -Name Graphite-PowerShell`
+2. Import the Module by running Import-Module -Name C:\Graphite-PowerShell\Graphite-PowerShell.psm1
 3. Start the script by using the function `Start-SQLStatsToGraphite`. If you want Verbose detailed use `Start-SQLStatsToGraphite -Verbose`. If you want to see what would be sent to Graphite, without actually sending the metrics, use `Start-SQLStatsToGraphite -Verbose -TestMode`
 
 The below image is what `Start-SQLStatsToGraphite` like with **VerboseOutput** turned on in the XML configuration file looks like.
@@ -166,14 +166,15 @@ Once you have edited the configuration file and verified everything is functioni
 The easiest way to achieve this is using NSSM - the Non-Sucking Service Manager.
 
 1. Download nssm from [nssm.cc](http://nssm.cc)
-2. Open up an Administrative command prompt and run `nssm install GraphitePowerShell`. (You can call the service whatever you want).
-3. A dialog will pop up allowing you to enter in settings for the new service. The following two tables below contains the settings to use.
+2. Choose from the nssm archive, which corresponds to the size of the operating system nssm.exe, copy it to the C:\Graphite-PowerShell directory
+3. Open up an Administrative command prompt,browse to the directory C:\Graphite-PowerShell and run nssm install Graphite-PowerShell. (You can call the service whatever you want).
+4. A dialog will pop up allowing you to enter in settings for the new service. The following two tables below contains the settings to use.
 
 ![alt text](http://i.imgur.com/sDjBcjl.jpg "NSSM Dialog")
 
-4. Click *Install Service*
-5. Make sure the service is started and it is set to Automatic
-6. Check your Graphite server and make sure the metrics are coming in
+5. Click *Install Service*
+6. Make sure the service is started and it is set to Automatic
+7. Check your Graphite server and make sure the metrics are coming in
 
 The below configurations will show how to run either `Start-StatsToGraphite` or `Start-SQLStatsToGraphite` as a service. If you want to run both on the same server, you will need to create two seperate services, one for each script.
 
@@ -185,7 +186,7 @@ Setting Name | Value
 --- | ---
 Path | C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
 Startup Directory | Leave Blank
-Options | -command "& { Import-Module -Name Graphite-PowerShell ; Start-StatsToGraphite }"
+Options | -command "& { Import-Module -Name C:\Graphite-PowerShell\Graphite-PowerShell.psm1 ; Start-StatsToGraphite }"
 
 ### Running Start-SQLStatsToGraphite as a Service
 
@@ -195,22 +196,24 @@ Setting Name | Value
 --- | ---
 Path | C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
 Startup Directory | Leave Blank
-Options | -command "& { Import-Module -Name Graphite-PowerShell ; Start-SQLStatsToGraphite }"
+Options | -command "& { Import-Module -Name C:\Graphite-PowerShell\Graphite-PowerShell.psm1 ; Start-SQLStatsToGraphite }"
 
 If you want to remove a service, read the NSSM documentation [http://nssm.cc/commands](http://nssm.cc/commands) for instructions.
 
 ### Installing as a Service Using PowerShell
-1. Download nssm from [nssm.cc](http://nssm.cc) and save it into a directory
-2. Open an Administrative PowerShell consolen and browse to the directory you saved NSSM
-3. Run `Start-Process -FilePath .\nssm.exe -ArgumentList 'install GraphitePowerShell "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" "-command "& { Import-Module -Name Graphite-PowerShell ; Start-StatsToGraphite }"" ' -NoNewWindow -Wait`
-4. Check the service installed successfully `Get-Service -Name GraphitePowerShell`
-5. Start the service `Start-Service -Name GraphitePowerShell`
+1. Download nssm from nssm.cc and save it into a directory C:\Graphite-PowerShell
+2. Open an Administrative PowerShell consolen and browse to the directory C:\Graphite-PowerShell
+3. Run Start-Process -FilePath .\nssm.exe -ArgumentList 'install Graphite-PowerShell "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" "-command "& { Import-Module -Name .\Graphite-PowerShell.psm1 ; Start-StatsToGraphite }"" ' -NoNewWindow -Wait
+4. Configure the Graphite-PowerShell service 
+5. Configure nssm
+6. Check the service installed successfully Get-Service -Name Graphite-PowerShell
+7. Start the service 'Start-Service -Name GraphitePowerShell'
 
 ## <a name="functions">Included Functions</a>
 
 There are several functions that are exposed by the module which are available to use in an ad-hoc manner.
 
-For a list of functions in the module, run `Get-Command -Module Graphite-PowerShell`. For full help for these functions run `Get-Help | <Function Name>`
+For a list of functions in the module, run `Get-Command -Module C:\Graphite-PowerShell\Graphite-PowerShell.psm1`. For full help for these functions run `Get-Help | <Function Name>`
 
 Function Name | Description
 --- | ---
