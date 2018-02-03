@@ -24,14 +24,16 @@ More details at [http://www.hodgkins.net.au/mswindows/using-powershell-to-send-m
 
 ## Installation
 
-1. Download the repository and place into a PowerShell Modules directory called **Graphite-Powershell**. The module directories can be found by running `$env:PSModulePath` in PowerShell. For example, `C:\Program Files\WindowsPowerShell\Modules\Graphite-PowerShell`
-1. Verify your folder structure looks like this, with the *.psd1* and *.psm1* files inside the **Graphite-Powershell** folder:
+1. Create a Graphite-Powershell directory in the root of the disk, load the repository and put its contents into the Graphite-Powershell directory.
+2. Verify your folder structure looks like this, with the *.psd1* and *.psm1* files inside the **Graphite-Powershell** folder:
 
  ![alt text](https://i.imgur.com/cS3JpNB.png "Start-StatsToGraphite with Verbose Output")
 3. Make sure the files are un-blocked by right clicking on them and going to properties.
 4. Modify the *StatsToGraphiteConfig.xml* configuration file. Instructions [here](#config).
 5. Open PowerShell and ensure you set your Execution Policy to allow scripts be run. For example `Set-ExecutionPolicy RemoteSigned`.
 
+*To quickly install the Graphite-PoverShell service, copy the Install_Graphite-Powershell.ps1 script and run it with Windows PowerShell with administrator rights. 
+This script downloads the repository, configures and runs the Graphite-PoverShell service.
 ### Modifying the Configuration File
 
 The configuration file is fairly self-explanatory, but here is a description for each of the values.

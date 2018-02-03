@@ -1,16 +1,31 @@
-Set-Location -Path $env:SystemDrive\
+Clear-Host
 $Service = 'Graphite-PowerShell'
 $Path = "$env:SystemDrive\$Service"
+function DeleteGraphitePowerShell{
+    param(
+	[string]$Service = $Service,
+	[string]$Path = $Path
+	)
+	
+	#Removing the Graphite-PowerShell service
+	if ((Get-Service -Name $Service -ErrorAction SilentlyContinue) -ne $null){
+		Stop-Service -Name $Service -Force
+		While ((Get-Service -Name $Service).Status -eq 'Stoped'){}
+		Start-Process -FilePath "C:\Windows\System32\cmd.exe" -ArgumentList "/c sc delete $Service"
+	}
 
-#Removing the Graphite-PowerShell service
-if ((Get-Service -Name $Service -ErrorAction SilentlyContinue) -ne $null){
-	cmd.exe /c "$Path\nssm.exe stop  $Service"
-	cmd.exe /c "sc delete $Service"
+	if(Test-Path -Path $Path){
+		Remove-Item  -Path $Path -Recurse -Force
+	}
+
+	#Removing other Graphite-PowerShell modules
+	$path_gp = (Get-Module -ListAvailable $Service).ModuleBase
+	if ($path_gp -ne $null){
+		Remove-Item -Path $path_gp  -Recurse -Force
+	}
 }
 
-if(Test-Path -Path $Path){
-    Remove-Item  -Path $Path -Recurse -Force
-}
+DeleteGraphitePowerShell
 
 New-Item -Path $Path -ItemType 'directory'
 
@@ -67,10 +82,9 @@ Remove-Item -Path "$env:TEMP\nssm*" -Recurse -Force
 Remove-Item -Path "$env:TEMP\$Service*" -Recurse -Force
 
 #Configure nssm
-Set-Location -Path $Path
- .\nssm install $Service  powershell.exe -command "& { Import-Module $Path\Graphite-PowerShell.psm1 ; Start-StatsToGraphite }"
-cmd.exe /c "sc failure $Service actions= restart/60000/restart/60000/restart/60000// reset= 240"
- .\nssm set  $Service  AppRotateFiles 1
- .\nssm set  $Service  AppRotateOnline 1
- .\nssm set $Service  AppThrottle 1500
- .\nssm start $Service 
+Start-Process -FilePath $Path\nssm.exe -ArgumentList "install $Service  powershell.exe -command & { Import-Module $Path\Graphite-PowerShell.psm1 ; Start-StatsToGraphite }"
+Start-Process -FilePath "C:\Windows\System32\cmd.exe" -ArgumentList "/c sc failure $Service actions= restart/60000/restart/60000/restart/60000// reset= 240"
+Start-Process -FilePath $Path\nssm.exe -ArgumentList "set  $Service  AppRotateFiles 1"
+Start-Process -FilePath $Path\nssm.exe -ArgumentList "set  $Service  AppRotateOnline 1"
+Start-Process -FilePath $Path\nssm.exe -ArgumentList "set  $Service  AppThrottle 1500"
+Start-Process -FilePath $Path\nssm.exe -ArgumentList "start $Service"
