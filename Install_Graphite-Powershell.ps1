@@ -135,7 +135,7 @@ function InstallGraphitePowerShell {
         Copy-Item -Path "$env:TEMP\nssm-2.24\win64\nssm.exe" -Destination $Path -Recurse -Force
     }      
     else {
-        Copy-Item -Path "$env:TEMP\nssm-2.24\win64\nssm.exe" -Destination $Path -Recurse -Force
+        Copy-Item -Path "$env:TEMP\nssm-2.24\win32\nssm.exe" -Destination $Path -Recurse -Force
     }
  
     Remove-Item -Path "$env:TEMP\nssm*" -Recurse -Force
