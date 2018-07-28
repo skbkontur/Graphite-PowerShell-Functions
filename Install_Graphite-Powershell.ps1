@@ -1,14 +1,18 @@
 Clear-Host
+
+$Service = 'Graphite-PowerShell'
+$Path = "$env:SystemDrive\$Service"
+$Process = 'nssm'
+
 function DeleteGraphitePowerShell {
-    $Service = 'Graphite-PowerShell'
-    $Path = "$env:SystemDrive\$Service"
-       
     if ($null -ne (Get-Service -Name $Service -ErrorAction SilentlyContinue)) {
         CheckingStateGP
-    }  
-   
-    if (Test-Path -Path $Path) {
+    }
+    if ($null -ne (Get-Process -Name $Process -ErrorAction SilentlyContinue)) {
         CheckingStateNSSM
+    }
+    if (Test-Path -Path $Path) {
+        Remove-Item  -Path $Path -Recurse -Force
     }
 }
  
@@ -16,8 +20,7 @@ function CheckingStateGP {
     $Timer = 10
     $MaxAttempts = 5
     $count = 0
-    $Service = 'Graphite-PowerShell'
- 
+
     if ((Get-Service -Name $Service).Status -eq 'Stopped') {
         Start-Process -FilePath "C:\Windows\System32\cmd.exe" -ArgumentList "/c sc delete $Service"
         return
@@ -41,96 +44,85 @@ function CheckingStateNSSM {
     $Timer = 10
     $MaxAttempts = 5
     $count = 0
-    $Process = 'nssm'
-    $Service = 'Graphite-PowerShell'
-    $Path = "$env:SystemDrive\$Service"
     
-    # The process nssm works
-    if ($null -ne ((Get-Process -Name $Process -ErrorAction SilentlyContinue))) {
-        $all_nssm = (Get-Process -Name $Process | Select-Object -ExpandProperty Path).count
+    $all_nssm = (Get-Process -Name $Process | Select-Object -ExpandProperty Path).count
 
-        foreach ($nssm_proc in $all_nssm){
-            # nssm.exe is located on path
-            if (((Get-Process -Name $Process | Select-Object -ExpandProperty Path)[$nssm_proc]) -eq "$Path\nssm.exe") { 
-                $nssm_id = ((Get-Process -Name $Process | Select-Object -ExpandProperty Id)[$nssm_proc])
-                Stop-Process -Id  $id -Force
+    foreach ($nssm_proc in $all_nssm) {
+        # nssm.exe is located on path
+        if (((Get-Process -Name $Process | Select-Object -ExpandProperty Path)[$nssm_proc]) -eq "$Path\nssm.exe") { 
+            $nssm_id = ((Get-Process -Name $Process | Select-Object -ExpandProperty Id)[$nssm_proc])
+            Stop-Process -Id  $id -Force
 
-                while ($null -ne $nssm_id) {                         
-                    if ($count -lt $MaxAttempts) {
-                        $count++
-                        Start-Sleep -seconds $timer
-                    }
-                    else {
-                        $exception = New-Object -TypeName System.Exception -ArgumentList "Service $Service can not be stopped. Increase the value of the timer and try again." 
-                        throw $exception
-                    }
+            while ($null -ne $nssm_id) {                         
+                if ($count -lt $MaxAttempts) {
+                    $count++
+                    Start-Sleep -seconds $timer
                 }
-
-                # nssm_id process is stopped
-                if ($null -eq $nssm_id) {
-                    Remove-Item  -Path $Path -Recurse -Force
+                else {
+                    $exception = New-Object -TypeName System.Exception -ArgumentList "Service $Service can not be stopped. Increase the value of the timer and try again." 
+                    throw $exception
                 }
             }
-            # nssm.exe in path not found
-            else {
+
+            # nssm_id process is stopped
+            if ($null -eq $nssm_id) {
                 Remove-Item  -Path $Path -Recurse -Force
             }
         }
-    }      
+        # nssm.exe in path not found
+        else {
+            Remove-Item  -Path $Path -Recurse -Force
+        }
+    }
 }
 
-function DownUnzip {
+function Unzip {
     param(
-        [string]$url,
         [string]$zipfile,
         [string]$output
     )
-    # Download
+
     try {
-        Invoke-WebRequest -Uri $url -OutFile $zipfile
+       $shell = new-object -com shell.application
+        $zip = $shell.NameSpace($zipfile)
+        foreach ($item in $zip.items()) {
+            $shell.Namespace($output).copyhere($item)
+        }
     }
-    catch [System.Net.WebException] {
-        $Request = $_.Exception
-        Write-Output "Exception caught: $Request"
-        break
-    }
-    # Unzip
-    try {
-        [System.IO.Compression.ZipFile]::ExtractToDirectory($zipfile, $output)
-    }
-    catch [System.IO.IOException] {
-        Write-Output 'The file already exists'
+    catch  {
+        $_.Exception.Message
+        return
     }
 }
 
 function InstallGraphitePowerShell {
-
-    $Service = 'Graphite-PowerShell'
-    $Path = "$env:SystemDrive\$Service"
+    $debugmod = $false
+    
     try {
         DeleteGraphitePowerShell
-   
     }
-    catch [GraphiteInstallationException] {
+    catch  {
         $_.Exception.Message
         return
     }
+
     New-Item -Path $Path -ItemType 'directory'
  
-    # Download zip file and unzip
-    Add-Type -AssemblyName System.IO.Compression.FileSystem
- 
-       
- 
+    # Download zip file and unzip       
     $url = "https://codeload.github.com/skbkontur/Graphite-PowerShell-Functions/zip/master"
     $zipfile = "$env:TEMP\Graphite-PowerShell-Functions-master.zip"
-    DownUnzip -url $url -zipfile $zipfile -output "$env:TEMP\"
+
+    $WebClient = New-Object System.Net.WebClient
+    $WebClient.DownloadFile($url, $zipfile)
+    
+    Unzip -zipfile $zipfile -output "$env:TEMP\"
  
     $url = "https://nssm.cc/release/nssm-2.24.zip"
     $zipfile = "$env:TEMP\nssm-2.24.zip"
-    DownUnzip -url $url -zipfile $zipfile -output "$env:TEMP\"
+    $WebClient.DownloadFile($url, $zipfile)
+
+    Unzip -zipfile $zipfile -output "$env:TEMP\"
  
-       
     if (Test-Path -Path "$env:TEMP\$Service") {
         Remove-Item -Path "$env:TEMP\$Service" -Recurse -Force
     }
@@ -141,8 +133,7 @@ function InstallGraphitePowerShell {
     # Checking the size of registers
     if (Test-Path -Path 'HKLM:\Software\Wow6432Node') {
         Copy-Item -Path "$env:TEMP\nssm-2.24\win64\nssm.exe" -Destination $Path -Recurse -Force
-    }
-       
+    }      
     else {
         Copy-Item -Path "$env:TEMP\nssm-2.24\win64\nssm.exe" -Destination $Path -Recurse -Force
     }
@@ -155,8 +146,11 @@ function InstallGraphitePowerShell {
     Start-Process -FilePath "C:\Windows\System32\cmd.exe" -ArgumentList "/c sc failure $Service actions= restart/60000/restart/60000/restart/60000// reset= 240"
     Start-Process -FilePath $Path\nssm.exe -ArgumentList "set  $Service  AppRotateFiles 1"
     Start-Process -FilePath $Path\nssm.exe -ArgumentList "set  $Service  AppRotateOnline 1"
+    if ($debugmod){
+        Start-Process -FilePath $Path\nssm.exe -ArgumentList "set  $Service AppStderr $Path\stdout.txt"
+        Start-Process -FilePath $Path\nssm.exe -ArgumentList "set  $Service AppStdout $Path\stdout.txt"
+    }
     Start-Process -FilePath $Path\nssm.exe -ArgumentList "set  $Service  AppThrottle 1500"
-    Start-Process -FilePath $Path\nssm.exe -ArgumentList "start $Service"  
-   
 }
+
 InstallGraphitePowerShell
