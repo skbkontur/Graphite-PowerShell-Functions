@@ -5,5 +5,8 @@ nssm install Graphite-Powershell powershell.exe -command "& { Import-Module C:\G
 sc failure Graphite-Powershell actions= restart/60000/restart/60000/restart/60000// reset= 240
 nssm set  Graphite-Powershell AppRotateFiles 1
 nssm set  Graphite-Powershell AppRotateOnline 1
+REM Debug
+REM nssm set  Graphite-Powershell AppStderr path\stdout.txt
+REM nssm set  Graphite-Powershell  AppStdout path\stdout.txt
 nssm set  Graphite-Powershell AppThrottle 1500
 nssm start Graphite-Powershell
