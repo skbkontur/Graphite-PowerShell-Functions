@@ -1,3 +1,4 @@
+![Logo](https://i.imgur.com/HFapaDp.png)
 # Graphite PowerShell Functions
 
 A group of PowerShell functions that allow you to send Windows Performance counters to a Graphite Server, all configurable from a simple XML file.
@@ -22,11 +23,14 @@ More details at the [Matthew Hodgkins Blog](https://hodgkins.io/using-powershell
 * Supports Hosted Graphite [which is available here](https://www.hostedgraphite.com)
 
 ## Installation
+
+Standart installation. Run Powershell with Administrator privileges:
+
     Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/skbkontur/Graphite-PowerShell-Functions/master/install.ps1'))
 
 Installation with [chocolatey](https://chocolatey.org):
      
-     choco install graphite-powershell --version 1.2.2
+     choco install graphite-powershell
 
 Change StatsToGraphiteConfig.xml, more in the [wiki](https://github.com/skbkontur/Graphite-PowerShell-Functions/wiki):
 
