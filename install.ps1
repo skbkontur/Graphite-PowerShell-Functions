@@ -1,7 +1,7 @@
 Clear-Host
 
 $Service = 'Graphite-PowerShell'
-$Path = "$env:SystemDrive\$Service"
+$Path = "$env:ProgramData\$Service"
 $Process = 'nssm'
 $ver_nssm ='2.24'
 
