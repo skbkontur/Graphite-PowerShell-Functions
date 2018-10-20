@@ -1,0 +1,9 @@
+install:
+  - ps: Install-Module -Name PSScriptAnalyzer -Force 
+  - ps: Install-Module -Name Pester
+
+build: false
+
+test_script:
+  - ps: . .\Functions\Pester.tests.ps1
+  - ps: . .\Functions\Internal.Tests.ps1
